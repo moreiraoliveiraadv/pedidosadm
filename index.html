@@ -333,6 +333,10 @@ details[open] .aj-open{display:none}
 .login-box .msg{text-align:left;width:100%}
 input[type=email]{font:16px/1.45 var(--texto);color:var(--marinho);background:transparent;border:0;border-bottom:1px solid var(--grafite);padding:8px 2px;width:100%}
 #sair{order:9}
+.login-modos{display:flex;gap:22px;justify-content:center}
+.login-modos button{border:0;background:none;padding:6px 0;font:500 15px var(--rotulo);color:var(--grafite);border-bottom:1px solid transparent;cursor:pointer}
+.login-modos button[aria-selected="true"]{color:var(--marinho);border-bottom-color:var(--marinho)}
+input[type=password]{font:16px/1.45 var(--texto);color:var(--marinho);background:transparent;border:0;border-bottom:1px solid var(--grafite);padding:8px 2px;width:100%}
 </style>
 </head>
 <body>
@@ -467,9 +471,16 @@ input[type=email]{font:16px/1.45 var(--texto);color:var(--marinho);background:tr
     <div class="wordmark">MOREIRA <span class="seal"><img src="" alt="" id="login-seal"></span> OLIVEIRA</div>
     <div class="advocacia">ADVOCACIA</div>
     <h1>Pedidos de documentos</h1>
+    <div class="login-modos" role="tablist">
+      <button type="button" id="modo-entrar" aria-selected="true">Entrar</button>
+      <button type="button" id="modo-criar" aria-selected="false">Primeiro acesso</button>
+    </div>
     <form id="login-form" novalidate>
-      <label class="f" for="login-email">Seu e-mail do escritório<input type="email" id="login-email" autocomplete="email" inputmode="email"></label>
-      <button type="submit" class="btn" id="login-btn">Receber link de acesso</button>
+      <label class="f" for="login-email">E-mail do escritório<input type="email" id="login-email" autocomplete="email" inputmode="email"></label>
+      <label class="f" for="login-senha" id="lbl-senha">Senha<input type="password" id="login-senha" autocomplete="current-password"></label>
+      <label class="f hidden" for="login-senha2" id="lbl-senha2">Repita a senha<input type="password" id="login-senha2" autocomplete="new-password"></label>
+      <button type="submit" class="btn" id="login-btn">Entrar</button>
+      <button type="button" class="btn link" id="esqueci">Esqueci a senha</button>
     </form>
     <p id="login-msg" class="msg hidden" role="status"></p>
   </div>
@@ -876,15 +887,50 @@ function telaLogin(msg){
   $("login").classList.remove("hidden");
   if(msg) showMsg("login-msg","err",msg);
 }
+let modo="entrar";
+function setModo(m){
+  modo=m; $("login-msg").classList.add("hidden");
+  $("modo-entrar").setAttribute("aria-selected",String(m==="entrar"));
+  $("modo-criar").setAttribute("aria-selected",String(m==="criar"));
+  $("lbl-senha").firstChild.textContent = m==="entrar"?"Senha":(m==="nova"?"Nova senha":"Crie sua senha");
+  $("login-senha").autocomplete = m==="entrar"?"current-password":"new-password";
+  $("lbl-senha2").classList.toggle("hidden",m==="entrar");
+  $("login-email").closest("label").classList.toggle("hidden",m==="nova");
+  $("esqueci").classList.toggle("hidden",m!=="entrar");
+  $("login-btn").textContent = m==="entrar"?"Entrar":(m==="nova"?"Salvar nova senha":"Criar acesso");
+}
+$("modo-entrar").addEventListener("click",()=>setModo("entrar"));
+$("modo-criar").addEventListener("click",()=>setModo("criar"));
+const ERROS=[[/invalid login|invalid credentials/i,"E-mail ou senha incorretos."],[/not confirmed/i,"Confirme seu e-mail pelo link que enviamos no primeiro acesso."],[/database error|not authorized|nao autorizado/i,"Este e-mail não tem acesso. Fale com a Lara."],[/already registered|already exists/i,"Este e-mail já tem senha. Use Entrar ou Esqueci a senha."],[/password/i,"A senha precisa ter pelo menos 8 caracteres."]];
+const erroTxt = e => (ERROS.find(([r])=>r.test(e&&e.message||""))||[0,"Não foi possível agora. Tente de novo em instantes."])[1];
 $("login-form").addEventListener("submit",async e=>{
   e.preventDefault();
-  const email=$("login-email").value.trim().toLowerCase();
-  if(!email){ showMsg("login-msg","err","Digite seu e-mail."); return; }
+  const email=$("login-email").value.trim().toLowerCase(), senha=$("login-senha").value, senha2=$("login-senha2").value;
+  if(modo!=="nova"&&!email){ showMsg("login-msg","err","Digite seu e-mail."); return; }
+  if(!senha){ showMsg("login-msg","err","Digite a senha."); return; }
+  if(modo!=="entrar"){
+    if(senha.length<8){ showMsg("login-msg","err","A senha precisa ter pelo menos 8 caracteres."); return; }
+    if(senha!==senha2){ showMsg("login-msg","err","As duas senhas não são iguais."); return; }
+  }
   $("login-btn").disabled=true;
-  const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname,shouldCreateUser:false}});
-  $("login-btn").disabled=false;
-  if(error) showMsg("login-msg","err",/signup|not allowed|not found/i.test(error.message||"")?"Este e-mail não tem acesso. Fale com a Lara.":"Não foi possível enviar o link. Tente de novo em instantes.");
-  else showMsg("login-msg","ok","Enviamos um link para "+email+". Abra o e-mail neste mesmo aparelho e clique no link.");
+  try{
+    if(modo==="entrar"){
+      const {error}=await sb.auth.signInWithPassword({email,password:senha}); if(error) throw error;
+    }else if(modo==="criar"){
+      const {data,error}=await sb.auth.signUp({email,password:senha,options:{emailRedirectTo:location.origin+location.pathname}}); if(error) throw error;
+      if(!data.session){ setModo("entrar"); $("login-email").value=email; showMsg("login-msg","ok","Senha criada. Enviamos um e-mail para "+email+": clique no link uma única vez para ativar. Depois é só entrar com e-mail e senha."); }
+    }else{
+      const {error}=await sb.auth.updateUser({password:senha}); if(error) throw error;
+      showMsg("login-msg","ok","Senha alterada."); const {data}=await sb.auth.getSession(); if(data.session&&!iniciado){ iniciado=true; iniciar(data.session); }
+    }
+  }catch(err){ showMsg("login-msg","err",erroTxt(err)); }
+  finally{ $("login-btn").disabled=false; }
+});
+$("esqueci").addEventListener("click",async()=>{
+  const email=$("login-email").value.trim().toLowerCase();
+  if(!email){ showMsg("login-msg","err","Digite seu e-mail e clique de novo em Esqueci a senha."); return; }
+  const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
+  if(error) showMsg("login-msg","err",erroTxt(error)); else showMsg("login-msg","ok","Enviamos um e-mail para "+email+" com o link para criar uma nova senha.");
 });
 $("sair").addEventListener("click",async()=>{ await sb.auth.signOut(); location.reload(); });
 async function iniciar(session){
@@ -899,7 +945,11 @@ async function iniciar(session){
   updateSummary(); startList();
 }
 let iniciado=false;
-sb.auth.onAuthStateChange((ev,session)=>{ if(session&&!iniciado){ iniciado=true; iniciar(session); } });
+let recuperando=false;
+sb.auth.onAuthStateChange((ev,session)=>{
+  if(ev==="PASSWORD_RECOVERY"){ recuperando=true; telaLogin(); setModo("nova"); return; }
+  if(session&&!iniciado&&!recuperando){ iniciado=true; iniciar(session); }
+});
 sb.auth.getSession().then(({data})=>{ if(!data.session) telaLogin(); });
 const dbReady=Promise.resolve(true);
 
