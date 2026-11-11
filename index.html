@@ -476,7 +476,7 @@ input[type=password]{font:16px/1.45 var(--texto);color:var(--marinho);background
       <button type="button" id="modo-criar" aria-selected="false">Primeiro acesso</button>
     </div>
     <form id="login-form" novalidate>
-      <label class="f" for="login-email">E-mail @moreiraoliveira.adv.br<input type="email" id="login-email" autocomplete="email" inputmode="email"></label>
+      <label class="f" for="login-email">Acesse com seu e-mail corporativo<input type="email" id="login-email" autocomplete="email" inputmode="email"></label>
       <label class="f" for="login-senha" id="lbl-senha">Senha<input type="password" id="login-senha" autocomplete="current-password"></label>
       <label class="f hidden" for="login-senha2" id="lbl-senha2">Repita a senha<input type="password" id="login-senha2" autocomplete="new-password"></label>
       <button type="submit" class="btn" id="login-btn">Entrar</button>
@@ -902,13 +902,13 @@ function setModo(m){
 $("modo-entrar").addEventListener("click",()=>setModo("entrar"));
 $("modo-criar").addEventListener("click",()=>setModo("criar"));
 const DOMINIO="@moreiraoliveira.adv.br";
-const ERROS=[[/invalid login|invalid credentials/i,"E-mail ou senha incorretos."],[/not confirmed/i,"Confirme seu e-mail pelo link que enviamos no primeiro acesso."],[/database error|not authorized|nao autorizado|dominio/i,"Use seu e-mail @moreiraoliveira.adv.br."],[/already registered|already exists/i,"Este e-mail já tem senha. Use Entrar ou Esqueci a senha."],[/password/i,"A senha precisa ter pelo menos 8 caracteres."]];
-const erroTxt = e => (ERROS.find(([r])=>r.test(e&&e.message||""))||[0,"Não foi possível agora. Tente de novo em instantes."])[1];
+const ERROS=[[/rate limit|too many/i,"Muitas tentativas seguidas. Aguarde alguns minutos e tente de novo."],[/sending.*email|smtp/i,"O e-mail de confirmação não pôde ser enviado agora. Tente de novo em alguns minutos."],[/signups not allowed|signup.*disabled/i,"A criação de acesso está desligada no Supabase."],[/invalid login|invalid credentials/i,"E-mail ou senha incorretos."],[/not confirmed/i,"Confirme seu e-mail pelo link que enviamos no primeiro acesso."],[/database error|not authorized|nao autorizado|dominio/i,"Acesse com seu e-mail corporativo."],[/already registered|already exists/i,"Este e-mail já tem senha. Use Entrar ou Esqueci a senha."],[/password/i,"A senha precisa ter pelo menos 8 caracteres."]];
+const erroTxt = e => { const m=(e&&e.message)||""; const f=ERROS.find(([r])=>r.test(m)); return f?f[1]:"Não foi possível agora. Tente de novo em instantes."+(m?" (detalhe: "+m+")":""); };
 $("login-form").addEventListener("submit",async e=>{
   e.preventDefault();
   const email=$("login-email").value.trim().toLowerCase(), senha=$("login-senha").value, senha2=$("login-senha2").value;
   if(modo!=="nova"&&!email){ showMsg("login-msg","err","Digite seu e-mail."); return; }
-  if(modo!=="nova"&&!email.endsWith(DOMINIO)){ showMsg("login-msg","err","Use seu e-mail "+DOMINIO+"."); return; }
+  if(modo!=="nova"&&!email.endsWith(DOMINIO)){ showMsg("login-msg","err","Acesse com seu e-mail corporativo."); return; }
   if(!senha){ showMsg("login-msg","err","Digite a senha."); return; }
   if(modo!=="entrar"){
     if(senha.length<8){ showMsg("login-msg","err","A senha precisa ter pelo menos 8 caracteres."); return; }
@@ -937,7 +937,7 @@ $("esqueci").addEventListener("click",async()=>{
 $("sair").addEventListener("click",async()=>{ await sb.auth.signOut(); location.reload(); });
 async function iniciar(session){
   meuEmail=session.user.email;
-  if(!(meuEmail||"").toLowerCase().endsWith(DOMINIO)){ await sb.auth.signOut(); telaLogin("Use seu e-mail "+DOMINIO+"."); return; }
+  if(!(meuEmail||"").toLowerCase().endsWith(DOMINIO)){ await sb.auth.signOut(); telaLogin("Acesse com seu e-mail corporativo."); return; }
   try{ const {data:aut}=await sb.from("autorizados").select("email,nome"); (aut||[]).forEach(a=>NOMES[a.email.toLowerCase()]=a.nome||a.email); }catch(e){}
   $("login").classList.add("hidden");
   await carregarGaleria();
