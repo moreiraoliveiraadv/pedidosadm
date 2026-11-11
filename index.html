@@ -337,6 +337,12 @@ input[type=email]{font:16px/1.45 var(--texto);color:var(--marinho);background:tr
 .login-modos button{border:0;background:none;padding:6px 0;font:500 15px var(--rotulo);color:var(--grafite);border-bottom:1px solid transparent;cursor:pointer}
 .login-modos button[aria-selected="true"]{color:var(--marinho);border-bottom-color:var(--marinho)}
 input[type=password]{font:16px/1.45 var(--texto);color:var(--marinho);background:transparent;border:0;border-bottom:1px solid var(--grafite);padding:8px 2px;width:100%}
+.campo-senha{position:relative;display:block}
+.campo-senha input{padding-right:40px}
+.olho{position:absolute;right:2px;top:50%;transform:translateY(-50%);border:0;background:none;color:var(--grafite);padding:6px;cursor:pointer;display:grid;place-items:center}
+.olho:hover{color:var(--marinho)}
+.olho .o-risco{display:none}
+.olho.ativo .o-risco{display:inline}
 </style>
 </head>
 <body>
@@ -477,8 +483,8 @@ input[type=password]{font:16px/1.45 var(--texto);color:var(--marinho);background
     </div>
     <form id="login-form" novalidate>
       <label class="f" for="login-email">Acesse com seu e-mail corporativo<input type="email" id="login-email" autocomplete="email" inputmode="email"></label>
-      <label class="f" for="login-senha" id="lbl-senha">Senha<input type="password" id="login-senha" autocomplete="current-password"></label>
-      <label class="f hidden" for="login-senha2" id="lbl-senha2">Repita a senha<input type="password" id="login-senha2" autocomplete="new-password"></label>
+      <label class="f" for="login-senha" id="lbl-senha">Senha<span class="campo-senha"><input type="password" id="login-senha" autocomplete="current-password"><button type="button" class="olho" data-alvo="login-senha" aria-label="Mostrar senha" title="Mostrar senha"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path class="o-aberto" d="M1.5 12S5.5 5 12 5s10.5 7 10.5 7-4 7-10.5 7S1.5 12 1.5 12Z" fill="none" stroke="currentColor" stroke-width="1.6"/><circle class="o-aberto" cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path class="o-risco" d="M3 3l18 18" stroke="currentColor" stroke-width="1.6"/></svg></button></span></label>
+      <label class="f hidden" for="login-senha2" id="lbl-senha2">Repita a senha<span class="campo-senha"><input type="password" id="login-senha2" autocomplete="new-password"><button type="button" class="olho" data-alvo="login-senha2" aria-label="Mostrar senha" title="Mostrar senha"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path class="o-aberto" d="M1.5 12S5.5 5 12 5s10.5 7 10.5 7-4 7-10.5 7S1.5 12 1.5 12Z" fill="none" stroke="currentColor" stroke-width="1.6"/><circle class="o-aberto" cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path class="o-risco" d="M3 3l18 18" stroke="currentColor" stroke-width="1.6"/></svg></button></span></label>
       <button type="submit" class="btn" id="login-btn">Entrar</button>
       <button type="button" class="btn link" id="esqueci">Esqueci a senha</button>
     </form>
@@ -934,6 +940,11 @@ $("esqueci").addEventListener("click",async()=>{
   const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
   if(error) showMsg("login-msg","err",erroTxt(error)); else showMsg("login-msg","ok","Enviamos um e-mail para "+email+" com o link para criar uma nova senha.");
 });
+document.querySelectorAll(".olho").forEach(b=>b.addEventListener("click",()=>{
+  const inp=$(b.dataset.alvo); const ver=inp.type==="password";
+  inp.type=ver?"text":"password"; b.classList.toggle("ativo",ver);
+  b.setAttribute("aria-label",ver?"Esconder senha":"Mostrar senha"); b.title=b.getAttribute("aria-label");
+}));
 $("sair").addEventListener("click",async()=>{ await sb.auth.signOut(); location.reload(); });
 async function iniciar(session){
   meuEmail=session.user.email;
