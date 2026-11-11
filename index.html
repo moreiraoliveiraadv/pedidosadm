@@ -476,7 +476,7 @@ input[type=password]{font:16px/1.45 var(--texto);color:var(--marinho);background
       <button type="button" id="modo-criar" aria-selected="false">Primeiro acesso</button>
     </div>
     <form id="login-form" novalidate>
-      <label class="f" for="login-email">E-mail do escritório<input type="email" id="login-email" autocomplete="email" inputmode="email"></label>
+      <label class="f" for="login-email">E-mail @moreiraoliveira.adv.br<input type="email" id="login-email" autocomplete="email" inputmode="email"></label>
       <label class="f" for="login-senha" id="lbl-senha">Senha<input type="password" id="login-senha" autocomplete="current-password"></label>
       <label class="f hidden" for="login-senha2" id="lbl-senha2">Repita a senha<input type="password" id="login-senha2" autocomplete="new-password"></label>
       <button type="submit" class="btn" id="login-btn">Entrar</button>
@@ -901,12 +901,14 @@ function setModo(m){
 }
 $("modo-entrar").addEventListener("click",()=>setModo("entrar"));
 $("modo-criar").addEventListener("click",()=>setModo("criar"));
-const ERROS=[[/invalid login|invalid credentials/i,"E-mail ou senha incorretos."],[/not confirmed/i,"Confirme seu e-mail pelo link que enviamos no primeiro acesso."],[/database error|not authorized|nao autorizado/i,"Este e-mail não tem acesso. Fale com a Lara."],[/already registered|already exists/i,"Este e-mail já tem senha. Use Entrar ou Esqueci a senha."],[/password/i,"A senha precisa ter pelo menos 8 caracteres."]];
+const DOMINIO="@moreiraoliveira.adv.br";
+const ERROS=[[/invalid login|invalid credentials/i,"E-mail ou senha incorretos."],[/not confirmed/i,"Confirme seu e-mail pelo link que enviamos no primeiro acesso."],[/database error|not authorized|nao autorizado|dominio/i,"Use seu e-mail @moreiraoliveira.adv.br."],[/already registered|already exists/i,"Este e-mail já tem senha. Use Entrar ou Esqueci a senha."],[/password/i,"A senha precisa ter pelo menos 8 caracteres."]];
 const erroTxt = e => (ERROS.find(([r])=>r.test(e&&e.message||""))||[0,"Não foi possível agora. Tente de novo em instantes."])[1];
 $("login-form").addEventListener("submit",async e=>{
   e.preventDefault();
   const email=$("login-email").value.trim().toLowerCase(), senha=$("login-senha").value, senha2=$("login-senha2").value;
   if(modo!=="nova"&&!email){ showMsg("login-msg","err","Digite seu e-mail."); return; }
+  if(modo!=="nova"&&!email.endsWith(DOMINIO)){ showMsg("login-msg","err","Use seu e-mail "+DOMINIO+"."); return; }
   if(!senha){ showMsg("login-msg","err","Digite a senha."); return; }
   if(modo!=="entrar"){
     if(senha.length<8){ showMsg("login-msg","err","A senha precisa ter pelo menos 8 caracteres."); return; }
@@ -935,9 +937,8 @@ $("esqueci").addEventListener("click",async()=>{
 $("sair").addEventListener("click",async()=>{ await sb.auth.signOut(); location.reload(); });
 async function iniciar(session){
   meuEmail=session.user.email;
-  const {data:aut}=await sb.from("autorizados").select("email,nome");
-  if(!aut||!aut.length){ await sb.auth.signOut(); telaLogin("O e-mail "+meuEmail+" não tem acesso. Fale com a Lara."); return; }
-  aut.forEach(a=>NOMES[a.email.toLowerCase()]=a.nome||a.email);
+  if(!(meuEmail||"").toLowerCase().endsWith(DOMINIO)){ await sb.auth.signOut(); telaLogin("Use seu e-mail "+DOMINIO+"."); return; }
+  try{ const {data:aut}=await sb.from("autorizados").select("email,nome"); (aut||[]).forEach(a=>NOMES[a.email.toLowerCase()]=a.nome||a.email); }catch(e){}
   $("login").classList.add("hidden");
   await carregarGaleria();
   renderGaleria(); renderComps(getRadio("tipo")||"proposta",false,null); renderTemplates("proposta",false,"");
@@ -1082,7 +1083,7 @@ async function carregarPedidos(){
   const {data,error}=await sb.from("pedidos").select("id,criado_em,solicitante,cliente,modelo,status,entrega,dados").order("criado_em",{ascending:false}).limit(300);
   if(error){ showMsg("list-msg","err","Não foi possível carregar os pedidos."); return; }
   $("list-msg").classList.add("hidden");
-  pedidos=data.map(r=>({id:r.id,data:{...r.dados,cliente:r.cliente,modelo:r.modelo,status:r.status,criadoEm:r.criado_em,solicitanteNome:r.dados.solicitanteNome||NOMES[(r.solicitante||"").toLowerCase()]||r.solicitante}}));
+  pedidos=data.map(r=>({id:r.id,data:{...r.dados,cliente:r.cliente,modelo:r.modelo,status:r.status,criadoEm:r.criado_em,solicitanteNome:r.dados.solicitanteNome||NOMES[(r.solicitante||"").toLowerCase()]||(r.solicitante||"").split("@")[0]}}));
   renderLista();
 }
 function startList(){ carregarPedidos(); }
